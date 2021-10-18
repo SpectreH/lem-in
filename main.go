@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -36,6 +37,7 @@ func main() {
 	generationData := ReadData(data)
 	farm := GenerateFarm(generationData)
 
+	fmt.Println(farm)
 	_ = farm
 }
 
@@ -59,15 +61,23 @@ func ReadData(data [][]byte) GenerationData {
 	ANTCOUNTER, err = strconv.Atoi(string(data[0]))
 	CheckError(err)
 
+	if ANTCOUNTER <= 0 {
+		log.Fatal("Invalid number of Ants!")
+	}
+
+	var startFound, endFound bool
+
 	var commentsCounter int = 1
 	for i := 1; i < len(data); i++ {
 		if strings.Contains(string(data[i]), "##") {
 			if string(data[i]) == "##start" {
+				startFound = true
 				result.StartIndex = i - commentsCounter
 			} else if string(data[i]) == "##end" {
+				endFound = true
 				result.EndIndex = i - commentsCounter
 			} else {
-				log.Fatal("Invalid data format!")
+				log.Fatal("Invalid start or end data format!")
 			}
 			commentsCounter++
 			continue
@@ -81,8 +91,12 @@ func ReadData(data [][]byte) GenerationData {
 		} else if strings.Count(string(data[i]), "-") == 1 {
 			result.Links = append(result.Links, string(data[i]))
 		} else {
-			log.Fatal("Invalid data format!")
+			log.Fatal("Invalid link data format!")
 		}
+	}
+
+	if !startFound || !endFound {
+		log.Fatal("Invalid data format, no start or end room found")
 	}
 
 	return result
@@ -124,19 +138,20 @@ func ConnectLinks(farm []Room, links []string) []Room {
 			if (farm)[k].Name == splittedData[0] {
 				for m := 0; m < len(farm); m++ {
 					if (farm)[m].Name == splittedData[1] {
+						if (farm)[m].Name == (farm)[k].Name {
+							log.Fatal("Invalid data format! Self-link is prohibited")
+						}
 						(farm)[k].Links = append((farm)[k].Links, &(farm)[m])
 						break
 					}
-
 					if m == len(farm)-1 {
-						log.Fatal("Invalid data format!")
+						log.Fatal("Invalid data format! Room link not found")
 					}
 				}
 				break
 			}
-
 			if k == len(farm)-1 {
-				log.Fatal("Invalid data format!")
+				log.Fatal("Invalid data format! Room link not found")
 			}
 		}
 	}
