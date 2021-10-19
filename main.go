@@ -9,8 +9,16 @@ import (
 	"strings"
 )
 
+type Ant struct {
+	Id          int
+	Path        []*Room
+	CurrentRoom *Room
+	RoomsPassed int
+}
+
 type Room struct {
 	Name    string
+	Ants    int
 	X_pos   int
 	Y_pos   int
 	IsStart bool
@@ -26,6 +34,7 @@ type GenerationData struct {
 }
 
 var ANTCOUNTER int
+var STARTROOMID int
 
 func main() {
 	if len(os.Args) != 2 {
@@ -37,8 +46,70 @@ func main() {
 	generationData := ReadData(data)
 	farm := GenerateFarm(generationData)
 
-	fmt.Println(farm)
-	_ = farm
+	//_ = farm
+	var path []*Room
+	var paths [][]*Room
+	CalculatePath(path, farm[STARTROOMID], 0, &paths, &farm[STARTROOMID])
+	fmt.Println(paths)
+	ants := SpawnAnts(&farm[STARTROOMID], paths)
+
+	MakeStep(ants)
+}
+
+func SpawnAnts(startRoom *Room, paths [][]*Room) []Ant {
+	var result []Ant
+
+	pathIndex := 0
+	for i := 1; i < ANTCOUNTER+1; i++ {
+		var antToAppend Ant
+
+		antToAppend.Id = i
+		antToAppend.CurrentRoom = startRoom
+
+		if pathIndex == len(paths) {
+			pathIndex = 0
+		}
+
+		antToAppend.Path = paths[pathIndex]
+		pathIndex++
+
+		result = append(result, antToAppend)
+	}
+
+	return result
+}
+
+func MakeStep(ants []Ant) {
+	var allPassed bool = true
+
+	for i := 0; i < len(ants); i++ {
+		if ants[i].CurrentRoom.IsEnd {
+			continue
+		}
+
+		nextRoomId := ants[i].RoomsPassed
+
+		if ants[i].Path[nextRoomId].Ants != 0 {
+			if !ants[i].Path[nextRoomId].IsEnd {
+				continue
+			}
+		}
+
+		ants[i].CurrentRoom.Ants--
+		ants[i].CurrentRoom = ants[i].Path[nextRoomId]
+		ants[i].CurrentRoom.Ants++
+		ants[i].RoomsPassed++
+		allPassed = false
+
+		fmt.Print("L", ants[i].Id, "-", ants[i].CurrentRoom.Name, " ")
+	}
+
+	if allPassed {
+		return
+	} else {
+		fmt.Println("")
+		MakeStep(ants)
+	}
 }
 
 func LoadData(fileName string) [][]byte {
@@ -111,6 +182,8 @@ func GenerateFarm(data GenerationData) []Room {
 
 		if i == data.StartIndex {
 			roomToAppend.IsStart = true
+			STARTROOMID = i
+			roomToAppend.Ants = ANTCOUNTER
 		} else if i == data.EndIndex {
 			roomToAppend.IsEnd = true
 		}
@@ -157,6 +230,66 @@ func ConnectLinks(farm []Room, links []string) []Room {
 	}
 
 	return farm
+}
+
+func CalculatePath(path []*Room, currentRoom Room, step int, paths *[][]*Room, previousRoom *Room) {
+	if currentRoom.IsEnd {
+		var skipPath bool
+
+		for k := 0; k < len(*paths); k++ {
+			if (*paths)[k] == nil {
+				continue
+			}
+
+			if path[0].Name == (*paths)[k][0].Name {
+				if len(path) < len((*paths)[k]) {
+					(*paths)[k] = nil
+					break
+				} else {
+					skipPath = true
+					break
+				}
+			}
+		}
+
+		if len(*paths) == 0 {
+			*paths = append((*paths), nil)
+		} else if (*paths)[len(*paths)-1] != nil {
+			*paths = append((*paths), nil)
+		}
+
+		for i := 0; i < len(path); i++ {
+			if !skipPath {
+				(*paths)[len(*paths)-1] = append((*paths)[len(*paths)-1], path[i])
+			} else {
+				break
+			}
+		}
+	}
+
+	for i := 0; i < len(currentRoom.Links); i++ {
+		var toContinue bool
+
+		for k := 0; k < len(path); k++ {
+			if path[k].Name == currentRoom.Links[i].Name {
+				toContinue = true
+				break
+			}
+		}
+
+		if !toContinue {
+			pathToPass := path
+			pathToPass = append(pathToPass, currentRoom.Links[i])
+			CalculatePath(pathToPass, *currentRoom.Links[i], step+1, paths, &currentRoom)
+			pathToPass = path
+		}
+	}
+
+	for i := 0; i < len(*paths); i++ {
+		if (*paths)[i] == nil {
+			*paths = append((*paths)[:i], (*paths)[i+1:]...)
+		}
+	}
 }
 
 func CheckError(err error) {
