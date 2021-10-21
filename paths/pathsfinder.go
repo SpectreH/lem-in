@@ -1,9 +1,7 @@
 package paths
 
 import (
-	"lem-in/ants"
 	"lem-in/structs"
-	"lem-in/utils"
 )
 
 // Finds all paths from start to end
@@ -57,139 +55,128 @@ func FindAllPossiblePaths(path []*structs.Room, currentRoom structs.Room, step i
 	}
 }
 
-// Sturcturize all paths by links in start room and saves only 3 shortest paths for each link in start room
-func StructurizePaths(paths [][]*structs.Room) []structs.PathStuct {
-	structurizedPaths := make([]structs.PathStuct, len(structs.FARM[structs.STARTROOMID].Links))
-	for k := 0; k < len(structs.FARM[structs.STARTROOMID].Links); k++ {
-		var amount int
-		var pathToAppend [][]*structs.Room
-		for i := 0; i < len(paths); i++ {
-			if amount == 3 {
-				break
-			}
+// Finds all possible combinations without intersects
+func FindCombinations(paths [][]*structs.Room) [][][]*structs.Room {
+	var result [][][]*structs.Room
 
-			if paths[i][0].Name == structs.FARM[structs.STARTROOMID].Links[k].Name {
-				pathToAppend = append(pathToAppend, paths[i])
-				amount++
+	for i := 0; i < len(paths); i++ {
+		var combination [][]*structs.Room
+		combination = append(combination, paths[i])
+		for k := i + 1; k < len(paths); k++ {
+			if !ExcludeIntersect(paths[i][:len(paths[i])-1], paths[k][:len(paths[k])-1]) &&
+				!ExcludeIntersectInsideComb(paths[k][:len(paths[k])-1], combination) {
+				combination = append(combination, paths[k])
 			}
 		}
-
-		structurizedPaths[k].PathName = structs.FARM[structs.STARTROOMID].Links[k].Name
-		structurizedPaths[k].Paths = append(structurizedPaths[k].Paths, pathToAppend...)
+		result = append(result, combination)
 	}
 
-	for i := 0; i < len(structurizedPaths); i++ {
-		utils.SortPaths(&structurizedPaths[i].Paths)
-	}
-
-	return structurizedPaths
+	return result
 }
 
-// Parses best paths combinations and saves best one
-func FindBestPathsComb(paths []structs.PathStuct, pathToCheck [][]*structs.Room, index int, maxLinks int) {
-	for i := 0; i < len(paths[index].Paths); i++ {
-		pathToCheck[index] = paths[index].Paths[i]
-
-		if maxLinks-1 == index {
-			possibleBestPath, possibleBestSteps, pathsInUse := TryPathsComb(pathToCheck)
-			utils.RestoreFarm()
-
-			if structs.BEST_PATH == nil || possibleBestSteps < structs.BEST_TURNS_RES {
-				structs.BEST_PATH = possibleBestPath
-				structs.BEST_TURNS_RES = possibleBestSteps
-				structs.BEST_ROOMS_IN_USE_RES = pathsInUse
+// Checks intersects between two paths
+func ExcludeIntersect(currentPath, pathToCheck []*structs.Room) bool {
+	for i := 0; i < len(currentPath); i++ {
+		for k := i + 1; k < len(pathToCheck); k++ {
+			if currentPath[i].Name == pathToCheck[k].Name {
+				return true
 			}
+		}
+	}
+	return false
+}
 
-			if possibleBestSteps == structs.BEST_TURNS_RES {
-				if pathsInUse < structs.BEST_ROOMS_IN_USE_RES {
-					structs.BEST_PATH = possibleBestPath
-					structs.BEST_TURNS_RES = possibleBestSteps
+// Checks intersects between existing combination and path
+func ExcludeIntersectInsideComb(path []*structs.Room, combination [][]*structs.Room) bool {
+	for i := 0; i < len(combination); i++ {
+		for k := 0; k < len(path); k++ {
+			for j := 0; j < len(combination[i]); j++ {
+				if path[k] == combination[i][j] {
+					return true
 				}
 			}
-		} else {
-			FindBestPathsComb(paths, pathToCheck, index+1, maxLinks)
 		}
 	}
+	return false
 }
 
-// Tries best possible path combination
-func TryPathsComb(paths [][]*structs.Room) ([][]*structs.Room, int, int) {
+// Finds best combination between all combinaitons. Author: aidynb
+func OptimalComb(c [][][]*structs.Room, num int) [][]*structs.Room {
+	m := make(map[int][][]*structs.Room)
+	var ret [][]*structs.Room
+	var tmp int
+	for _, comb := range c {
+		min := len(comb[0])
+		max := len(comb[len(comb)-1])
+		numPath := len(comb)
+		areaEmpty := 0
+		for _, p := range comb {
+
+			if len(p) == 1 {
+				ret = append(ret, p)
+				return ret
+			}
+			areaEmpty += (max - len(p))
+		}
+		antsLeft := num - areaEmpty
+
+		min += (antsLeft / numPath) + (antsLeft % numPath)
+		m[min] = comb
+		tmp = min
+	}
+	for k := range m {
+		if k <= tmp {
+			ret = m[k]
+			tmp = k
+		}
+	}
+	return ret
+}
+
+// Calculates best suitable path for each ant
+func CalculateBestPathsCombForAnts(paths [][]*structs.Room) [][]*structs.Room {
 	var resultPath [][]*structs.Room
-	checkedPath := ExcludeIntersections(paths)
 
-	antPosTable := make([]int, len(checkedPath))
+	antPosTable := make([]int, len(paths))
+	var currentIndex = 0
+	var nextPathId int
+	var updateNextPathId bool = true
 	for i := 0; i < structs.ANTCOUNTER; i++ {
-		var minimumPath []*structs.Room
-		var indexForPosTable int = -1
+		if i == 0 {
+			resultPath = append(resultPath, paths[0])
+			currentIndex = 0
+			antPosTable[currentIndex]++
+			continue
+		}
 
-		for k := 0; k < len(checkedPath); k++ {
-			if len(checkedPath) == 1 || checkedPath[k][0].IsEnd {
-				resultPath = append(resultPath, checkedPath[k])
+		for {
+			if updateNextPathId {
+				if len(paths) == currentIndex+1 {
+					nextPathId = 0
+				} else {
+					nextPathId = currentIndex + 1
+				}
+				updateNextPathId = false
+			}
+
+			if len(paths) == 1 || paths[currentIndex][0].IsEnd {
+				resultPath = append(resultPath, paths[currentIndex])
 				break
 			}
 
-			if indexForPosTable == -1 {
-				minimumPath = checkedPath[k]
-				indexForPosTable = k
-				continue
-			}
-
-			if antPosTable[indexForPosTable]+len(minimumPath) > len(checkedPath[k])+antPosTable[k] {
-				minimumPath = checkedPath[k]
-				indexForPosTable = k
-			}
-
-			if k == len(checkedPath)-1 {
-				antPosTable[indexForPosTable]++
-				resultPath = append(resultPath, minimumPath)
+			if antPosTable[currentIndex]+len(paths[currentIndex]) <= len(paths[nextPathId])+antPosTable[nextPathId] {
+				resultPath = append(resultPath, paths[currentIndex])
+				antPosTable[currentIndex]++
+				break
+			} else {
+				resultPath = append(resultPath, paths[nextPathId])
+				antPosTable[nextPathId]++
+				currentIndex = nextPathId
+				updateNextPathId = true
+				break
 			}
 		}
-
 	}
 
-	antsList := ants.SpawnAnts(resultPath)
-	var stepsCounter int = 0
-	ants.MakeStep(antsList, 1, &stepsCounter)
-
-	return resultPath, stepsCounter, len(checkedPath)
-}
-
-// Excludes that path from path combination, what can interrupt shortest path from this combination
-func ExcludeIntersections(paths [][]*structs.Room) [][]*structs.Room {
-	sortedByLenghtPaths := make([][]*structs.Room, 0)
-	sortedByLenghtPaths = append(sortedByLenghtPaths, paths...)
-	utils.SortPaths(&sortedByLenghtPaths)
-
-	var roomsInUse []*structs.Room
-	checkedPath := make([][]*structs.Room, 0)
-	for i := 0; i < len(sortedByLenghtPaths); i++ {
-		var skipPath bool = false
-		for k := 0; k < len(sortedByLenghtPaths[i]); k++ {
-			startLenght := len(roomsInUse)
-			for m := 0; m < startLenght; m++ {
-				if roomsInUse[m].IsEnd {
-					continue
-				}
-				if roomsInUse[m].Name == sortedByLenghtPaths[i][k].Name {
-					skipPath = true
-					break
-				}
-				roomsInUse = append(roomsInUse, sortedByLenghtPaths[i][k])
-			}
-			if skipPath {
-				break
-			}
-			if len(roomsInUse) == 0 {
-				roomsInUse = append(roomsInUse, sortedByLenghtPaths[i]...)
-				break
-			}
-		}
-
-		if skipPath {
-			sortedByLenghtPaths = append(sortedByLenghtPaths[:i], sortedByLenghtPaths[i+1:]...)
-		} else {
-			checkedPath = append(checkedPath, sortedByLenghtPaths[i])
-		}
-	}
-	return checkedPath
+	return resultPath
 }

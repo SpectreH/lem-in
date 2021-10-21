@@ -49,7 +49,7 @@ func ConnectLinks(links []string) {
 							log.Fatal("Invalid data format! Self-link is prohibited")
 						}
 						structs.FARM[k].Links = append(structs.FARM[k].Links, &structs.FARM[m])
-						structs.FARM[m].Links = append(structs.FARM[m].Links, &(structs.FARM)[k])
+						structs.FARM[m].Links = append(structs.FARM[m].Links, &structs.FARM[k])
 						break
 					}
 					if m == len(structs.FARM)-1 {

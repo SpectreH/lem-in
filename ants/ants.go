@@ -21,8 +21,8 @@ func SpawnAnts(paths [][]*structs.Room) []structs.Ant {
 	return result
 }
 
-// Makes ants (from ants list) to move from start to end. Mode 1 - to test path, Mode 0 - make final movement with best paths combinations and printing steps
-func MakeStep(ants []structs.Ant, mode int, sum *int) {
+// Makes ants (from ants list) to move from start to end prints each ant step.
+func MakeStep(ants []structs.Ant) {
 	var allPassed bool = true
 	for i := 0; i < len(ants); i++ {
 		if ants[i].CurrentRoom.IsEnd {
@@ -43,23 +43,13 @@ func MakeStep(ants []structs.Ant, mode int, sum *int) {
 		ants[i].RoomsPassed++
 		allPassed = false
 
-		if mode == 0 {
-			fmt.Print("L", ants[i].Id, "-", ants[i].CurrentRoom.Name, " ")
-		}
+		fmt.Print("L", ants[i].Id, "-", ants[i].CurrentRoom.Name, " ")
 	}
 
 	if allPassed && structs.FARM[structs.ENDROOMID].Ants == structs.ANTCOUNTER {
 		return
 	} else {
-		if mode == 0 {
-			fmt.Println("")
-		}
-
-		*sum++
-		if structs.BEST_TURNS_RES < *sum && structs.BEST_TURNS_RES != 0 {
-			return
-		}
-
-		MakeStep(ants, mode, sum)
+		fmt.Println("")
+		MakeStep(ants)
 	}
 }

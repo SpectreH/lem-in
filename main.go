@@ -25,10 +25,10 @@ func main() {
 	paths.FindAllPossiblePaths(make([]*structs.Room, 0), structs.FARM[structs.STARTROOMID], 0, &allPaths, &structs.FARM[structs.STARTROOMID])
 	utils.SortPaths(&allPaths)
 
-	potentialPaths := paths.StructurizePaths(allPaths)
-	paths.FindBestPathsComb(potentialPaths, make([][]*structs.Room, len(structs.FARM[structs.STARTROOMID].Links)), 0, len(structs.FARM[structs.STARTROOMID].Links))
+	allCombinations := paths.FindCombinations(allPaths)
+	OptimalCombination := paths.OptimalComb(allCombinations, structs.ANTCOUNTER)
+	pathsListForAnts := paths.CalculateBestPathsCombForAnts(OptimalCombination)
 
-	antsList := ants.SpawnAnts(structs.BEST_PATH)
-	var stepsCounter int
-	ants.MakeStep(antsList, 0, &stepsCounter)
+	antsList := ants.SpawnAnts(pathsListForAnts)
+	ants.MakeStep(antsList)
 }
