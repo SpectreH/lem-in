@@ -101,7 +101,7 @@ func ExcludeIntersectInsideComb(path []*structs.Room, combination [][]*structs.R
 }
 
 // Finds best combination between all combinaitons. Author: aidynb
-func OptimalComb(c [][][]*structs.Room, num int) [][]*structs.Room {
+func FindOptimalComb(c [][][]*structs.Room, num int) [][]*structs.Room {
 	m := make(map[int][][]*structs.Room)
 	var ret [][]*structs.Room
 	var tmp int
