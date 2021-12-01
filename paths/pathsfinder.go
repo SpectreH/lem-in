@@ -65,9 +65,11 @@ func FindCombinations(paths [][]*structs.Room) [][][]*structs.Room {
 		for k := i + 1; k < len(paths); k++ {
 			if !ExcludeIntersect(paths[i][:len(paths[i])-1], paths[k][:len(paths[k])-1]) &&
 				!ExcludeIntersectInsideComb(paths[k][:len(paths[k])-1], combination) {
+				result = append(result, combination)
 				combination = append(combination, paths[k])
 			}
 		}
+
 		result = append(result, combination)
 	}
 
@@ -100,83 +102,68 @@ func ExcludeIntersectInsideComb(path []*structs.Room, combination [][]*structs.R
 	return false
 }
 
-// Finds best combination between all combinaitons. Author: aidynb
-func FindOptimalComb(c [][][]*structs.Room, num int) [][]*structs.Room {
-	m := make(map[int][][]*structs.Room)
-	var ret [][]*structs.Room
-	var tmp int
-	for _, comb := range c {
-		min := len(comb[0])
-		max := len(comb[len(comb)-1])
-		numPath := len(comb)
-		areaEmpty := 0
-		for _, p := range comb {
+// Finds best combination between all combinaitons and calculates best suitable path for each ant
+func FindBestComb(c [][][]*structs.Room) [][]*structs.Room {
+	var bestScore int
+	var bestPath [][]*structs.Room
 
-			if len(p) == 1 {
-				ret = append(ret, p)
-				return ret
-			}
-			areaEmpty += (max - len(p))
-		}
-		antsLeft := num - areaEmpty
+	for _, paths := range c {
+		var pathComb [][]*structs.Room
 
-		min += (antsLeft / numPath) + (antsLeft % numPath)
-		m[min] = comb
-		tmp = min
-	}
-	for k := range m {
-		if k <= tmp {
-			ret = m[k]
-			tmp = k
-		}
-	}
-	return ret
-}
-
-// Calculates best suitable path for each ant
-func CalculateBestPathsCombForAnts(paths [][]*structs.Room) [][]*structs.Room {
-	var resultPath [][]*structs.Room
-
-	antPosTable := make([]int, len(paths))
-	var currentIndex = 0
-	var nextPathId int
-	var updateNextPathId bool = true
-	for i := 0; i < structs.ANTCOUNTER; i++ {
-		if i == 0 {
-			resultPath = append(resultPath, paths[0])
-			currentIndex = 0
-			antPosTable[currentIndex]++
-			continue
-		}
-
-		for {
-			if updateNextPathId {
-				if len(paths) == currentIndex+1 {
-					nextPathId = 0
-				} else {
-					nextPathId = currentIndex + 1
-				}
-				updateNextPathId = false
-			}
-
-			if len(paths) == 1 || paths[currentIndex][0].IsEnd {
-				resultPath = append(resultPath, paths[currentIndex])
-				break
-			}
-
-			if antPosTable[currentIndex]+len(paths[currentIndex]) <= len(paths[nextPathId])+antPosTable[nextPathId] {
-				resultPath = append(resultPath, paths[currentIndex])
+		antPosTable := make([]int, len(paths))
+		var currentIndex = 0
+		var nextPathId int
+		var updateNextPathId bool = true
+		for i := 0; i < structs.ANTCOUNTER; i++ {
+			if i == 0 {
+				pathComb = append(pathComb, paths[0])
+				currentIndex = 0
 				antPosTable[currentIndex]++
-				break
-			} else {
-				resultPath = append(resultPath, paths[nextPathId])
-				antPosTable[nextPathId]++
-				currentIndex = nextPathId
-				updateNextPathId = true
-				break
+				continue
 			}
+			for {
+				if updateNextPathId {
+					if len(paths) == currentIndex+1 {
+						nextPathId = 0
+					} else {
+						nextPathId = currentIndex + 1
+					}
+					updateNextPathId = false
+				}
+
+				if len(paths) == 1 || paths[currentIndex][0].IsEnd {
+					pathComb = append(pathComb, paths[currentIndex])
+					antPosTable[currentIndex]++
+					break
+				}
+
+				if antPosTable[currentIndex]+len(paths[currentIndex]) <= len(paths[nextPathId])+antPosTable[nextPathId] {
+					pathComb = append(pathComb, paths[currentIndex])
+					antPosTable[currentIndex]++
+					break
+				} else {
+					pathComb = append(pathComb, paths[nextPathId])
+					antPosTable[nextPathId]++
+					currentIndex = nextPathId
+					updateNextPathId = true
+					break
+				}
+			}
+		}
+
+		var currentScore int
+		for i := 0; i < len(paths); i++ {
+			temp := antPosTable[i] + len(paths[i])
+			if currentScore == 0 || temp > currentScore {
+				currentScore = temp
+			}
+		}
+
+		if bestScore == 0 || currentScore < bestScore {
+			bestScore = currentScore
+			bestPath = pathComb
 		}
 	}
 
-	return resultPath
+	return bestPath
 }

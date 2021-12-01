@@ -26,9 +26,8 @@ func main() {
 	utils.SortPaths(&allPaths)
 
 	allCombinations := paths.FindCombinations(allPaths)
-	OptimalCombination := paths.FindOptimalComb(allCombinations, structs.ANTCOUNTER)
-	pathsListForAnts := paths.CalculateBestPathsCombForAnts(OptimalCombination)
+	bestCombination := paths.FindBestComb(allCombinations)
 
-	antsList := ants.SpawnAnts(pathsListForAnts)
+	antsList := ants.SpawnAnts(bestCombination)
 	ants.MakeStep(antsList)
 }
